@@ -10,6 +10,7 @@ import java.util.Optional;
 @Repository
 public interface JugadorRepository extends JpaRepository<Jugador, Integer> {
     List<Jugador> findByEquipoIdAndActivoTrue(Integer equipoId);
+    List<Jugador> findByEquipoId(Integer equipoId);
     List<Jugador> findByActivoTrue();
     Optional<Jugador> findByIdAndActivoTrue(Integer id);
     boolean existsByDni(String dni);
