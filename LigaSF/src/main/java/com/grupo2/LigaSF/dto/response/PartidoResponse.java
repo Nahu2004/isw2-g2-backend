@@ -1,6 +1,5 @@
 package com.grupo2.LigaSF.dto.response;
 
-import com.grupo2.LigaSF.entity.Partido;
 import com.grupo2.LigaSF.entity.enums.EstadoPartido;
 
 import java.time.LocalDateTime;
@@ -21,37 +20,35 @@ public class PartidoResponse {
     private String arbitroNombre;
     private LocalDateTime fechaHoraInicio;
     private EstadoPartido estado;
+    private Integer golesLocal;
+    private Integer golesVisitante;
 
     public PartidoResponse() {
     }
 
-    public static PartidoResponse fromEntity(Partido partido) {
-        PartidoResponse resp = new PartidoResponse();
-        resp.setId(partido.getId());
-        if (partido.getTorneo() != null) {
-            resp.setTorneoId(partido.getTorneo().getId());
-            resp.setTorneoNombre(partido.getTorneo().getNombre());
-        }
-        resp.setNumeroFecha(partido.getNumeroFecha());
-        if (partido.getEquipoLocal() != null) {
-            resp.setEquipoLocalId(partido.getEquipoLocal().getId());
-            resp.setEquipoLocalNombre(partido.getEquipoLocal().getNombre());
-        }
-        if (partido.getEquipoVisitante() != null) {
-            resp.setEquipoVisitanteId(partido.getEquipoVisitante().getId());
-            resp.setEquipoVisitanteNombre(partido.getEquipoVisitante().getNombre());
-        }
-        if (partido.getCancha() != null) {
-            resp.setCanchaId(partido.getCancha().getId());
-            resp.setCanchaNombre(partido.getCancha().getNombre());
-        }
-        if (partido.getArbitro() != null) {
-            resp.setArbitroId(partido.getArbitro().getId());
-            resp.setArbitroNombre(partido.getArbitro().getNombre() + " " + partido.getArbitro().getApellido());
-        }
-        resp.setFechaHoraInicio(partido.getFechaHoraInicio());
-        resp.setEstado(partido.getEstado());
-        return resp;
+    public PartidoResponse(Integer id, Integer torneoId, String torneoNombre, Integer numeroFecha,
+                           Integer equipoLocalId, String equipoLocalNombre,
+                           Integer equipoVisitanteId, String equipoVisitanteNombre,
+                           Integer canchaId, String canchaNombre,
+                           Integer arbitroId, String arbitroNombre,
+                           LocalDateTime fechaHoraInicio, EstadoPartido estado,
+                           Integer golesLocal, Integer golesVisitante) {
+        this.id = id;
+        this.torneoId = torneoId;
+        this.torneoNombre = torneoNombre;
+        this.numeroFecha = numeroFecha;
+        this.equipoLocalId = equipoLocalId;
+        this.equipoLocalNombre = equipoLocalNombre;
+        this.equipoVisitanteId = equipoVisitanteId;
+        this.equipoVisitanteNombre = equipoVisitanteNombre;
+        this.canchaId = canchaId;
+        this.canchaNombre = canchaNombre;
+        this.arbitroId = arbitroId;
+        this.arbitroNombre = arbitroNombre;
+        this.fechaHoraInicio = fechaHoraInicio;
+        this.estado = estado;
+        this.golesLocal = golesLocal;
+        this.golesVisitante = golesVisitante;
     }
 
     public Integer getId() {
@@ -164,5 +161,21 @@ public class PartidoResponse {
 
     public void setEstado(EstadoPartido estado) {
         this.estado = estado;
+    }
+
+    public Integer getGolesLocal() {
+        return golesLocal;
+    }
+
+    public void setGolesLocal(Integer golesLocal) {
+        this.golesLocal = golesLocal;
+    }
+
+    public Integer getGolesVisitante() {
+        return golesVisitante;
+    }
+
+    public void setGolesVisitante(Integer golesVisitante) {
+        this.golesVisitante = golesVisitante;
     }
 }

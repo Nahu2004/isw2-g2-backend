@@ -1,16 +1,12 @@
 package com.grupo2.LigaSF.service;
 
-import com.grupo2.LigaSF.dto.request.CambiarEstadoPartidoRequest;
+import com.grupo2.LigaSF.dto.request.PartidoRequest;
 import com.grupo2.LigaSF.dto.response.PartidoResponse;
-import com.grupo2.LigaSF.entity.Arbitro;
-import com.grupo2.LigaSF.entity.Cancha;
-import com.grupo2.LigaSF.entity.Equipo;
-import com.grupo2.LigaSF.entity.Partido;
-import com.grupo2.LigaSF.entity.Torneo;
+import com.grupo2.LigaSF.entity.*;
 import com.grupo2.LigaSF.entity.enums.EstadoPartido;
 import com.grupo2.LigaSF.exception.BadRequestException;
-import com.grupo2.LigaSF.exception.ResourceNotFoundException;
-import com.grupo2.LigaSF.repository.PartidoRepository;
+import com.grupo2.LigaSF.exception.ConflictException;
+import com.grupo2.LigaSF.repository.*;
 import com.grupo2.LigaSF.service.impl.PartidoServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -21,6 +17,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDateTime;
+import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -32,122 +30,171 @@ class PartidoServiceTest {
 
     @Mock
     private PartidoRepository partidoRepository;
+    @Mock
+    private TorneoRepository torneoRepository;
+    @Mock
+    private EquipoRepository equipoRepository;
+    @Mock
+    private CanchaRepository canchaRepository;
+    @Mock
+    private ArbitroRepository arbitroRepository;
+    @Mock
+    private EventoPartidoRepository eventoPartidoRepository;
 
     @InjectMocks
     private PartidoServiceImpl partidoService;
 
-    private Partido partido;
+    private Torneo torneo;
+    private Equipo equipoLocal;
+    private Equipo equipoVisitante;
+    private Cancha cancha;
+    private Arbitro arbitro;
+    private LocalDateTime fechaInicio;
 
     @BeforeEach
     void setUp() {
-        Torneo torneo = new Torneo("Apertura 2026", 2026, true);
+        torneo = new Torneo("Apertura 2026", 2026, true);
         torneo.setId(1);
 
-        Equipo local = new Equipo(torneo, "Local FC", "Norte", true);
-        local.setId(1);
-        Equipo visitante = new Equipo(torneo, "Visita FC", "Sur", true);
-        visitante.setId(2);
+        equipoLocal = new Equipo(torneo, "Colón FC", "Centenario", true);
+        equipoLocal.setId(10);
 
-        Cancha cancha = new Cancha("Cancha 1", "Calle 1", true);
+        equipoVisitante = new Equipo(torneo, "Unión FC", "La Florida", true);
+        equipoVisitante.setId(20);
+
+        cancha = new Cancha("Cancha Municipal Norte", "Av. Blas Parera 7400", true);
         cancha.setId(1);
-        Arbitro arbitro = new Arbitro("Juan", "Pérez", "12345678", true);
+
+        arbitro = new Arbitro("Marcelo", "Quiroga", "28111222", true);
         arbitro.setId(1);
 
-        partido = new Partido(torneo, 1, local, visitante, cancha, arbitro, LocalDateTime.now(), EstadoPartido.PROGRAMADO);
-        partido.setId(10);
+        fechaInicio = LocalDateTime.of(2026, 11, 1, 16, 0);
     }
 
     @Test
-    @DisplayName("Debe cambiar estado de PROGRAMADO a EN_JUEGO exitosamente")
-    void cambiarEstadoProgramadoAEnJuego() {
-        CambiarEstadoPartidoRequest request = new CambiarEstadoPartidoRequest(EstadoPartido.EN_JUEGO);
+    @DisplayName("Debe programar un partido exitosamente en estado PROGRAMADO")
+    void programarPartidoExitoso() {
+        PartidoRequest request = new PartidoRequest(1, 1, 10, 20, 1, 1, fechaInicio);
 
-        when(partidoRepository.findById(10)).thenReturn(Optional.of(partido));
-        when(partidoRepository.save(any(Partido.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(torneoRepository.findById(1)).thenReturn(Optional.of(torneo));
+        when(equipoRepository.findById(10)).thenReturn(Optional.of(equipoLocal));
+        when(equipoRepository.findById(20)).thenReturn(Optional.of(equipoVisitante));
+        when(canchaRepository.findById(1)).thenReturn(Optional.of(cancha));
+        when(arbitroRepository.findById(1)).thenReturn(Optional.of(arbitro));
 
-        PartidoResponse response = partidoService.cambiarEstado(10, request);
+        when(partidoRepository.findPartidosEquipoEnFecha(1, 1, 10)).thenReturn(Collections.emptyList());
+        when(partidoRepository.findPartidosEquipoEnFecha(1, 1, 20)).thenReturn(Collections.emptyList());
+        when(partidoRepository.findByCanchaIdAndEstadoNot(1, EstadoPartido.SUSPENDIDO)).thenReturn(Collections.emptyList());
+        when(partidoRepository.findByArbitroIdAndEstadoNot(1, EstadoPartido.SUSPENDIDO)).thenReturn(Collections.emptyList());
+
+        Partido partidoGuardado = new Partido(torneo, 1, equipoLocal, equipoVisitante, cancha, arbitro, fechaInicio, EstadoPartido.PROGRAMADO);
+        partidoGuardado.setId(100);
+        when(partidoRepository.save(any(Partido.class))).thenReturn(partidoGuardado);
+        when(eventoPartidoRepository.findByPartidoId(100)).thenReturn(Collections.emptyList());
+
+        PartidoResponse response = partidoService.programar(request);
 
         assertNotNull(response);
-        assertEquals(EstadoPartido.EN_JUEGO, response.getEstado());
-        assertEquals(EstadoPartido.EN_JUEGO, partido.getEstado());
-        verify(partidoRepository, times(1)).save(partido);
+        assertEquals(100, response.getId());
+        assertEquals(EstadoPartido.PROGRAMADO, response.getEstado());
+        assertEquals("Colón FC", response.getEquipoLocalNombre());
+        assertEquals("Unión FC", response.getEquipoVisitanteNombre());
+        verify(partidoRepository, times(1)).save(any(Partido.class));
     }
 
     @Test
-    @DisplayName("Debe cambiar estado de PROGRAMADO a SUSPENDIDO exitosamente")
-    void cambiarEstadoProgramadoASuspendido() {
-        CambiarEstadoPartidoRequest request = new CambiarEstadoPartidoRequest(EstadoPartido.SUSPENDIDO);
+    @DisplayName("Debe fallar si local y visitante son el mismo equipo")
+    void programarMismoEquipo() {
+        PartidoRequest request = new PartidoRequest(1, 1, 10, 10, 1, 1, fechaInicio);
 
-        when(partidoRepository.findById(10)).thenReturn(Optional.of(partido));
-        when(partidoRepository.save(any(Partido.class))).thenAnswer(invocation -> invocation.getArgument(0));
-
-        PartidoResponse response = partidoService.cambiarEstado(10, request);
-
-        assertNotNull(response);
-        assertEquals(EstadoPartido.SUSPENDIDO, response.getEstado());
-        assertEquals(EstadoPartido.SUSPENDIDO, partido.getEstado());
-    }
-
-    @Test
-    @DisplayName("Debe cambiar estado de EN_JUEGO a FINALIZADO exitosamente")
-    void cambiarEstadoEnJuegoAFinalizado() {
-        partido.setEstado(EstadoPartido.EN_JUEGO);
-        CambiarEstadoPartidoRequest request = new CambiarEstadoPartidoRequest(EstadoPartido.FINALIZADO);
-
-        when(partidoRepository.findById(10)).thenReturn(Optional.of(partido));
-        when(partidoRepository.save(any(Partido.class))).thenAnswer(invocation -> invocation.getArgument(0));
-
-        PartidoResponse response = partidoService.cambiarEstado(10, request);
-
-        assertNotNull(response);
-        assertEquals(EstadoPartido.FINALIZADO, response.getEstado());
-    }
-
-    @Test
-    @DisplayName("Debe fallar al intentar cambiar directamente de PROGRAMADO a FINALIZADO")
-    void cambiarEstadoProgramadoAFinalizadoInvalido() {
-        CambiarEstadoPartidoRequest request = new CambiarEstadoPartidoRequest(EstadoPartido.FINALIZADO);
-
-        when(partidoRepository.findById(10)).thenReturn(Optional.of(partido));
-
-        BadRequestException ex = assertThrows(BadRequestException.class, () -> partidoService.cambiarEstado(10, request));
-        assertTrue(ex.getMessage().contains("Transición de estado no válida"));
+        assertThrows(BadRequestException.class, () -> partidoService.programar(request));
         verify(partidoRepository, never()).save(any(Partido.class));
     }
 
     @Test
-    @DisplayName("Debe fallar si el partido ya está FINALIZADO (es irreversible)")
-    void cambiarEstadoPartidoFinalizadoIrreversible() {
+    @DisplayName("Debe fallar por solapamiento de cancha a menos de 2 horas (RN-01)")
+    void solapamientoCanchaRN01() {
+        PartidoRequest request = new PartidoRequest(1, 1, 10, 20, 1, 1, fechaInicio); // 16:00
+
+        when(torneoRepository.findById(1)).thenReturn(Optional.of(torneo));
+        when(equipoRepository.findById(10)).thenReturn(Optional.of(equipoLocal));
+        when(equipoRepository.findById(20)).thenReturn(Optional.of(equipoVisitante));
+        when(canchaRepository.findById(1)).thenReturn(Optional.of(cancha));
+        when(arbitroRepository.findById(1)).thenReturn(Optional.of(arbitro));
+
+        // Otro partido en la misma cancha a las 17:00 (a menos de 2 horas de las 16:00)
+        Partido partidoConflicto = new Partido(torneo, 1, new Equipo(), new Equipo(), cancha, new Arbitro(),
+                LocalDateTime.of(2026, 11, 1, 17, 0), EstadoPartido.PROGRAMADO);
+        partidoConflicto.setId(99);
+
+        when(partidoRepository.findByCanchaIdAndEstadoNot(1, EstadoPartido.SUSPENDIDO))
+                .thenReturn(List.of(partidoConflicto));
+
+        ConflictException ex = assertThrows(ConflictException.class, () -> partidoService.programar(request));
+        assertTrue(ex.getMessage().contains("RN-01"));
+    }
+
+    @Test
+    @DisplayName("Debe permitir si la cancha está separada por exactamente 2 horas (RN-01)")
+    void canchaValidaSeparadaExactamenteDosHoras() {
+        PartidoRequest request = new PartidoRequest(1, 1, 10, 20, 1, 1, fechaInicio); // 16:00
+
+        when(torneoRepository.findById(1)).thenReturn(Optional.of(torneo));
+        when(equipoRepository.findById(10)).thenReturn(Optional.of(equipoLocal));
+        when(equipoRepository.findById(20)).thenReturn(Optional.of(equipoVisitante));
+        when(canchaRepository.findById(1)).thenReturn(Optional.of(cancha));
+        when(arbitroRepository.findById(1)).thenReturn(Optional.of(arbitro));
+
+        // Otro partido en la misma cancha a las 18:00 (exactamente 2 horas, válido según RN-01)
+        Partido partidoValido = new Partido(torneo, 1, new Equipo(), new Equipo(), cancha, new Arbitro(),
+                LocalDateTime.of(2026, 11, 1, 18, 0), EstadoPartido.PROGRAMADO);
+        partidoValido.setId(99);
+
+        when(partidoRepository.findPartidosEquipoEnFecha(1, 1, 10)).thenReturn(Collections.emptyList());
+        when(partidoRepository.findPartidosEquipoEnFecha(1, 1, 20)).thenReturn(Collections.emptyList());
+        when(partidoRepository.findByCanchaIdAndEstadoNot(1, EstadoPartido.SUSPENDIDO))
+                .thenReturn(List.of(partidoValido));
+        when(partidoRepository.findByArbitroIdAndEstadoNot(1, EstadoPartido.SUSPENDIDO))
+                .thenReturn(Collections.emptyList());
+
+        Partido partidoGuardado = new Partido(torneo, 1, equipoLocal, equipoVisitante, cancha, arbitro, fechaInicio, EstadoPartido.PROGRAMADO);
+        partidoGuardado.setId(100);
+        when(partidoRepository.save(any(Partido.class))).thenReturn(partidoGuardado);
+        when(eventoPartidoRepository.findByPartidoId(100)).thenReturn(Collections.emptyList());
+
+        assertDoesNotThrow(() -> partidoService.programar(request));
+    }
+
+    @Test
+    @DisplayName("Debe fallar si un equipo ya juega en esa fecha")
+    void equipoJuegaDosVecesMismaFecha() {
+        PartidoRequest request = new PartidoRequest(1, 1, 10, 20, 1, 1, fechaInicio);
+
+        when(torneoRepository.findById(1)).thenReturn(Optional.of(torneo));
+        when(equipoRepository.findById(10)).thenReturn(Optional.of(equipoLocal));
+        when(equipoRepository.findById(20)).thenReturn(Optional.of(equipoVisitante));
+        when(canchaRepository.findById(1)).thenReturn(Optional.of(cancha));
+        when(arbitroRepository.findById(1)).thenReturn(Optional.of(arbitro));
+
+        Partido partidoPrevio = new Partido();
+        partidoPrevio.setId(50);
+        partidoPrevio.setEstado(EstadoPartido.PROGRAMADO);
+
+        when(partidoRepository.findPartidosEquipoEnFecha(1, 1, 10)).thenReturn(List.of(partidoPrevio));
+
+        assertThrows(ConflictException.class, () -> partidoService.programar(request));
+    }
+
+    @Test
+    @DisplayName("No debe permitir borrar un partido que no esté en estado PROGRAMADO")
+    void eliminarPartidoNoProgramadoFalla() {
+        Partido partido = new Partido();
+        partido.setId(1);
         partido.setEstado(EstadoPartido.FINALIZADO);
-        CambiarEstadoPartidoRequest request = new CambiarEstadoPartidoRequest(EstadoPartido.EN_JUEGO);
 
-        when(partidoRepository.findById(10)).thenReturn(Optional.of(partido));
+        when(partidoRepository.findById(1)).thenReturn(Optional.of(partido));
 
-        BadRequestException ex = assertThrows(BadRequestException.class, () -> partidoService.cambiarEstado(10, request));
-        assertTrue(ex.getMessage().contains("No se puede cambiar el estado de un partido que ya se encuentra FINALIZADO"));
-        verify(partidoRepository, never()).save(any(Partido.class));
-    }
-
-    @Test
-    @DisplayName("Debe fallar si el partido ya está SUSPENDIDO (es irreversible)")
-    void cambiarEstadoPartidoSuspendidoIrreversible() {
-        partido.setEstado(EstadoPartido.SUSPENDIDO);
-        CambiarEstadoPartidoRequest request = new CambiarEstadoPartidoRequest(EstadoPartido.EN_JUEGO);
-
-        when(partidoRepository.findById(10)).thenReturn(Optional.of(partido));
-
-        BadRequestException ex = assertThrows(BadRequestException.class, () -> partidoService.cambiarEstado(10, request));
-        assertTrue(ex.getMessage().contains("No se puede cambiar el estado de un partido que ya se encuentra SUSPENDIDO"));
-        verify(partidoRepository, never()).save(any(Partido.class));
-    }
-
-    @Test
-    @DisplayName("Debe lanzar ResourceNotFoundException si el partido no existe")
-    void cambiarEstadoPartidoInexistente() {
-        CambiarEstadoPartidoRequest request = new CambiarEstadoPartidoRequest(EstadoPartido.EN_JUEGO);
-
-        when(partidoRepository.findById(999)).thenReturn(Optional.empty());
-
-        assertThrows(ResourceNotFoundException.class, () -> partidoService.cambiarEstado(999, request));
+        assertThrows(BadRequestException.class, () -> partidoService.eliminar(1));
+        verify(partidoRepository, never()).delete(any(Partido.class));
     }
 }
