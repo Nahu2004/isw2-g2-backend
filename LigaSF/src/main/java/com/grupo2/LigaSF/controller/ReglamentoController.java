@@ -1,19 +1,25 @@
 package com.grupo2.LigaSF.controller;
 
 import com.grupo2.LigaSF.dto.response.DisponibilidadResponse;
+import com.grupo2.LigaSF.dto.response.SancionResponse;
 import com.grupo2.LigaSF.exception.ConflictException;
+import com.grupo2.LigaSF.service.BloqueoJugadorService;
 import com.grupo2.LigaSF.service.HorarioValidacionService;
+import com.grupo2.LigaSF.service.SancionService;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
 
 /**
- * Módulo 4 – Reglamento: Endpoints de consulta de disponibilidad de horarios.
+ * Módulo 4 – Reglamento: Endpoints de consulta de horarios, sanciones y bloqueos.
  *
- * <p>Permite al frontend (u otros módulos) verificar si una cancha o un árbitro
- * están libres en un horario dado, antes de intentar programar un partido.</p>
+ * <p>Funcionalidad 1 (RN-01/RN-02): disponibilidad de cancha y árbitro.</p>
+ * <p>Funcionalidad 2 (RN-03): consulta de jugadores sancionados por fecha.</p>
+ * <p>Funcionalidad 3 (RN-03/RN-04): verificación de habilitación de jugadores.</p>
  *
  * <p>Base URL: {@code /api/reglamento}</p>
  */
@@ -22,26 +28,25 @@ import java.time.LocalDateTime;
 public class ReglamentoController {
 
     private final HorarioValidacionService horarioValidacionService;
+    private final SancionService sancionService;
+    private final BloqueoJugadorService bloqueoJugadorService;
 
-    public ReglamentoController(HorarioValidacionService horarioValidacionService) {
+    public ReglamentoController(HorarioValidacionService horarioValidacionService,
+                                SancionService sancionService,
+                                BloqueoJugadorService bloqueoJugadorService) {
         this.horarioValidacionService = horarioValidacionService;
+        this.sancionService = sancionService;
+        this.bloqueoJugadorService = bloqueoJugadorService;
     }
 
-    // -----------------------------------------------------------------------
-    // GET /api/reglamento/disponibilidad/cancha/{canchaId}?inicio=...
-    // RN-01: Verifica que la cancha esté libre en el horario solicitado.
-    // -----------------------------------------------------------------------
+    // =========================================================================
+    // FUNCIONALIDAD 1: Validación de horarios (RN-01 / RN-02)
+    // =========================================================================
 
     /**
-     * Consulta si una cancha está disponible en el horario indicado.
+     * Consulta si una cancha está disponible en el horario indicado (RN-01).
      *
-     * @param canchaId ID de la cancha a consultar.
-     * @param inicio   Fecha y hora de inicio a verificar (formato: {@code yyyy-MM-dd'T'HH:mm:ss}).
-     * @return 200 OK con {@code disponible: true} si no hay conflicto,
-     *         o {@code disponible: false, motivo: "..."} si la cancha está ocupada.
-     *
-     * Ejemplo de uso:
-     * GET /api/reglamento/disponibilidad/cancha/1?inicio=2025-06-14T10:00:00
+     * Ejemplo: GET /api/reglamento/disponibilidad/cancha/1?inicio=2025-06-14T10:00:00
      */
     @GetMapping("/disponibilidad/cancha/{canchaId}")
     public ResponseEntity<DisponibilidadResponse> consultarDisponibilidadCancha(
@@ -49,31 +54,17 @@ public class ReglamentoController {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime inicio) {
 
         try {
-            // Pasamos null como idExcluido porque es una consulta pura, no una edición
             horarioValidacionService.validarDisponibilidadCancha(canchaId, inicio, null);
             return ResponseEntity.ok(new DisponibilidadResponse(true));
-
         } catch (ConflictException ex) {
-            // La cancha tiene un conflicto: lo informamos sin lanzar error HTTP
             return ResponseEntity.ok(new DisponibilidadResponse(false, ex.getMessage()));
         }
     }
 
-    // -----------------------------------------------------------------------
-    // GET /api/reglamento/disponibilidad/arbitro/{arbitroId}?inicio=...
-    // RN-02: Verifica que el árbitro esté libre en el horario solicitado.
-    // -----------------------------------------------------------------------
-
     /**
-     * Consulta si un árbitro está disponible en el horario indicado.
+     * Consulta si un árbitro está disponible en el horario indicado (RN-02).
      *
-     * @param arbitroId ID del árbitro a consultar.
-     * @param inicio    Fecha y hora de inicio a verificar (formato: {@code yyyy-MM-dd'T'HH:mm:ss}).
-     * @return 200 OK con {@code disponible: true} si no hay conflicto,
-     *         o {@code disponible: false, motivo: "..."} si el árbitro ya tiene partido.
-     *
-     * Ejemplo de uso:
-     * GET /api/reglamento/disponibilidad/arbitro/10?inicio=2025-06-14T10:00:00
+     * Ejemplo: GET /api/reglamento/disponibilidad/arbitro/10?inicio=2025-06-14T10:00:00
      */
     @GetMapping("/disponibilidad/arbitro/{arbitroId}")
     public ResponseEntity<DisponibilidadResponse> consultarDisponibilidadArbitro(
@@ -81,13 +72,79 @@ public class ReglamentoController {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime inicio) {
 
         try {
-            // Pasamos null como idExcluido porque es una consulta pura, no una edición
             horarioValidacionService.validarDisponibilidadArbitro(arbitroId, inicio, null);
             return ResponseEntity.ok(new DisponibilidadResponse(true));
-
         } catch (ConflictException ex) {
-            // El árbitro tiene un conflicto: lo informamos sin lanzar error HTTP
             return ResponseEntity.ok(new DisponibilidadResponse(false, ex.getMessage()));
         }
+    }
+
+    // =========================================================================
+    // FUNCIONALIDAD 2: Sanciones (RN-03)
+    // =========================================================================
+
+    /**
+     * Lista todos los jugadores suspendidos para una fecha específica del torneo (RN-03).
+     *
+     * Ejemplo: GET /api/reglamento/sanciones?torneoId=1&fecha=3
+     */
+    @GetMapping("/sanciones")
+    public ResponseEntity<List<SancionResponse>> listarSancionados(
+            @RequestParam Integer torneoId,
+            @RequestParam Integer fecha) {
+
+        return ResponseEntity.ok(sancionService.listarSancionados(torneoId, fecha));
+    }
+
+    /**
+     * Verifica si un jugador específico está suspendido para una fecha (RN-03).
+     *
+     * Ejemplo: GET /api/reglamento/sanciones/jugador/5?torneoId=1&fecha=3
+     */
+    @GetMapping("/sanciones/jugador/{jugadorId}")
+    public ResponseEntity<Map<String, Boolean>> consultarSuspensionJugador(
+            @PathVariable Integer jugadorId,
+            @RequestParam Integer torneoId,
+            @RequestParam Integer fecha) {
+
+        boolean suspendido = sancionService.estaJugadorSuspendido(jugadorId, torneoId, fecha);
+        return ResponseEntity.ok(Map.of("suspendido", suspendido));
+    }
+
+    // =========================================================================
+    // FUNCIONALIDAD 3: Bloqueo de jugadores (RN-03 + RN-04)
+    // =========================================================================
+
+    /**
+     * Verifica si un jugador está habilitado para jugar una fecha del torneo.
+     *
+     * <p>Un jugador está bloqueado si está suspendido por tarjetas (RN-03)
+     * o si está desactivado en el sistema (baja lógica).</p>
+     *
+     * <p>Este endpoint es el que consume el frontend antes de mostrar
+     * a un jugador como disponible para inscribirse en un partido.</p>
+     *
+     * @return {@code {"bloqueado": false}} si puede jugar.
+     *         {@code {"bloqueado": true, "motivo": "..."}} si no puede.
+     *
+     * Ejemplo: GET /api/reglamento/bloqueo/jugador/5?torneoId=1&fecha=3
+     */
+    @GetMapping("/bloqueo/jugador/{jugadorId}")
+    public ResponseEntity<Map<String, Object>> consultarBloqueoJugador(
+            @PathVariable Integer jugadorId,
+            @RequestParam Integer torneoId,
+            @RequestParam Integer fecha) {
+
+        boolean bloqueado = bloqueoJugadorService.estaJugadorBloqueado(jugadorId, torneoId, fecha);
+
+        if (bloqueado) {
+            // Determinamos el motivo específico para informar al usuario
+            String motivo = sancionService.estaJugadorSuspendido(jugadorId, torneoId, fecha)
+                    ? "El jugador está suspendido por tarjetas para esta fecha (RN-03)."
+                    : "El jugador está desactivado en el sistema.";
+            return ResponseEntity.ok(Map.of("bloqueado", true, "motivo", motivo));
+        }
+
+        return ResponseEntity.ok(Map.of("bloqueado", false));
     }
 }
