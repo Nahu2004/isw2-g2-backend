@@ -13,7 +13,6 @@ import com.grupo2.LigaSF.service.PartidoService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -27,19 +26,22 @@ public class PartidoServiceImpl implements PartidoService {
     private final CanchaRepository canchaRepository;
     private final ArbitroRepository arbitroRepository;
     private final EventoPartidoRepository eventoPartidoRepository;
+    private final com.grupo2.LigaSF.service.HorarioValidacionService horarioValidacionService;
 
     public PartidoServiceImpl(PartidoRepository partidoRepository,
                               TorneoRepository torneoRepository,
                               EquipoRepository equipoRepository,
                               CanchaRepository canchaRepository,
                               ArbitroRepository arbitroRepository,
-                              EventoPartidoRepository eventoPartidoRepository) {
+                              EventoPartidoRepository eventoPartidoRepository,
+                              com.grupo2.LigaSF.service.HorarioValidacionService horarioValidacionService) {
         this.partidoRepository = partidoRepository;
         this.torneoRepository = torneoRepository;
         this.equipoRepository = equipoRepository;
         this.canchaRepository = canchaRepository;
         this.arbitroRepository = arbitroRepository;
         this.eventoPartidoRepository = eventoPartidoRepository;
+        this.horarioValidacionService = horarioValidacionService;
     }
 
     @Override
@@ -189,40 +191,13 @@ public class PartidoServiceImpl implements PartidoService {
         }
     }
 
-    // RN-01: Una cancha no puede tener dos partidos no suspendidos cuyos inicios estén a menos de 2 horas.
+    // RN-01 y RN-02: delegado al Módulo 4 - Reglamento (HorarioValidacionService)
     private void validarSolapamientoCancha(Cancha cancha, LocalDateTime inicio, Integer idExcluido) {
-        List<Partido> partidosCancha = partidoRepository.findByCanchaIdAndEstadoNot(cancha.getId(), EstadoPartido.SUSPENDIDO);
-
-        for (Partido p : partidosCancha) {
-            if (idExcluido != null && p.getId().equals(idExcluido)) {
-                continue;
-            }
-
-            long diffMinutos = Math.abs(Duration.between(inicio, p.getFechaHoraInicio()).toMinutes());
-            if (diffMinutos < 120) {
-                throw new ConflictException("La cancha '" + cancha.getNombre() +
-                        "' ya tiene un partido programado a las " + p.getFechaHoraInicio() +
-                        ". Debe haber al menos 2 horas de diferencia entre inicios (RN-01)");
-            }
-        }
+        horarioValidacionService.validarDisponibilidadCancha(cancha.getId(), inicio, idExcluido);
     }
 
-    // RN-02: La misma regla, aplicada al árbitro: no puede dirigir dos partidos con inicios a menos de 2 horas.
     private void validarSolapamientoArbitro(Arbitro arbitro, LocalDateTime inicio, Integer idExcluido) {
-        List<Partido> partidosArbitro = partidoRepository.findByArbitroIdAndEstadoNot(arbitro.getId(), EstadoPartido.SUSPENDIDO);
-
-        for (Partido p : partidosArbitro) {
-            if (idExcluido != null && p.getId().equals(idExcluido)) {
-                continue;
-            }
-
-            long diffMinutos = Math.abs(Duration.between(inicio, p.getFechaHoraInicio()).toMinutes());
-            if (diffMinutos < 120) {
-                throw new ConflictException("El árbitro '" + arbitro.getNombre() + " " + arbitro.getApellido() +
-                        "' ya tiene un partido asignado a las " + p.getFechaHoraInicio() +
-                        ". Debe haber al menos 2 horas de diferencia entre inicios (RN-02)");
-            }
-        }
+        horarioValidacionService.validarDisponibilidadArbitro(arbitro.getId(), inicio, idExcluido);
     }
 
     private Partido buscarPartido(Integer id) {

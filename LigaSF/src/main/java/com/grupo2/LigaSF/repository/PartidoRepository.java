@@ -14,6 +14,9 @@ public interface PartidoRepository extends JpaRepository<Partido, Integer> {
 
     List<Partido> findByTorneoIdAndNumeroFechaOrderByFechaHoraInicioAsc(Integer torneoId, Integer numeroFecha);
 
+    // Usado por SancionServiceImpl (Módulo 4) para obtener partidos de una fecha sin orden específico
+    List<Partido> findByTorneoIdAndNumeroFecha(Integer torneoId, Integer numeroFecha);
+
     List<Partido> findByTorneoIdOrderByNumeroFechaAscFechaHoraInicioAsc(Integer torneoId);
 
     List<Partido> findByCanchaIdAndEstadoNot(Integer canchaId, EstadoPartido estado);
