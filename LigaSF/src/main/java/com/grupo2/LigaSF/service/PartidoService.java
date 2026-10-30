@@ -1,5 +1,6 @@
 package com.grupo2.LigaSF.service;
 
+import com.grupo2.LigaSF.dto.request.CambiarEstadoPartidoRequest;
 import com.grupo2.LigaSF.dto.request.PartidoRequest;
 import com.grupo2.LigaSF.dto.response.PartidoResponse;
 
@@ -16,4 +17,6 @@ public interface PartidoService {
     PartidoResponse obtenerPorId(Integer id);
 
     List<PartidoResponse> listar(Integer torneoId, Integer numeroFecha);
+
+    PartidoResponse cambiarEstado(Integer id, CambiarEstadoPartidoRequest request);
 }
