@@ -1,4 +1,4 @@
-package com.grupo2.LigaSF.service.impl;
+﻿package com.grupo2.LigaSF.service.impl;
 
 import com.grupo2.LigaSF.dto.request.PartidoRequest;
 import com.grupo2.LigaSF.dto.response.PartidoResponse;
@@ -258,5 +258,48 @@ public class PartidoServiceImpl implements PartidoService {
                 golesLocal,
                 golesVisitante
         );
+    }
+
+    @Override
+    public PartidoResponse cambiarEstado(Integer id, com.grupo2.LigaSF.dto.request.CambiarEstadoPartidoRequest request) {
+        Partido partido = buscarPartido(id);
+
+        EstadoPartido actual = partido.getEstado();
+        EstadoPartido nuevo = request.getEstado();
+
+        if (actual == nuevo) {
+            return toResponse(partido);
+        }
+
+        // RN-05: Validar que FINALIZADO y SUSPENDIDO sean irreversibles
+        if (actual == EstadoPartido.FINALIZADO || actual == EstadoPartido.SUSPENDIDO) {
+            throw new BadRequestException("No se puede cambiar el estado de un partido que ya se encuentra " + actual);
+        }
+
+        // Transiciones permitidas:
+        // PROGRAMADO -> EN_JUEGO
+        // PROGRAMADO -> SUSPENDIDO
+        // EN_JUEGO -> FINALIZADO
+        // EN_JUEGO -> SUSPENDIDO
+        boolean transicionValida = false;
+
+        if (actual == EstadoPartido.PROGRAMADO) {
+            if (nuevo == EstadoPartido.EN_JUEGO || nuevo == EstadoPartido.SUSPENDIDO) {
+                transicionValida = true;
+            }
+        } else if (actual == EstadoPartido.EN_JUEGO) {
+            if (nuevo == EstadoPartido.FINALIZADO || nuevo == EstadoPartido.SUSPENDIDO) {
+                transicionValida = true;
+            }
+        }
+
+        if (!transicionValida) {
+            throw new BadRequestException("Transición de estado no válida de " + actual + " a " + nuevo);
+        }
+
+        partido.setEstado(nuevo);
+        Partido actualizado = partidoRepository.save(partido);
+
+        return toResponse(actualizado);
     }
 }

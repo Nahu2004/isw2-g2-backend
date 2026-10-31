@@ -1,4 +1,4 @@
-package com.grupo2.LigaSF.controller;
+﻿package com.grupo2.LigaSF.controller;
 
 import com.grupo2.LigaSF.dto.request.PartidoRequest;
 import com.grupo2.LigaSF.dto.response.PartidoResponse;
@@ -52,5 +52,13 @@ public class PartidoController {
     public ResponseEntity<Void> eliminar(@PathVariable Integer id) {
         partidoService.eliminar(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @PatchMapping("/{id}/estado")
+    public ResponseEntity<PartidoResponse> cambiarEstado(
+            @PathVariable Integer id,
+            @Valid @RequestBody com.grupo2.LigaSF.dto.request.CambiarEstadoPartidoRequest request) {
+        PartidoResponse response = partidoService.cambiarEstado(id, request);
+        return ResponseEntity.ok(response);
     }
 }
