@@ -1,4 +1,4 @@
-﻿package com.grupo2.LigaSF.security;
+package com.grupo2.LigaSF.security;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -59,10 +59,32 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 .requestMatchers("/h2-console/**").permitAll()
                 .requestMatchers("/api/auth/**").permitAll()
+
+                // RF-07/08/09: Delegado y Admin pueden operar partidos en vivo
                 .requestMatchers(HttpMethod.PATCH, "/api/partidos/*/estado").hasAnyRole("DELEGADO", "ADMIN")
                 .requestMatchers(HttpMethod.POST, "/api/partidos/*/eventos").hasAnyRole("DELEGADO", "ADMIN")
                 .requestMatchers(HttpMethod.DELETE, "/api/eventos/*").hasAnyRole("DELEGADO", "ADMIN")
+
+                // RF-06: Solo Admin puede programar y cancelar partidos
+                .requestMatchers(HttpMethod.POST, "/api/partidos").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.DELETE, "/api/partidos/*").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.PUT, "/api/partidos/*").hasRole("ADMIN")
+
+                // RF-03: Solo Admin puede gestionar equipos (escritura)
+                .requestMatchers(HttpMethod.POST, "/api/equipos").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.PUT, "/api/equipos/*").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.DELETE, "/api/equipos/*").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.PATCH, "/api/equipos/*/reactivar").hasRole("ADMIN")
+
+                // RF-04: Solo Admin puede gestionar jugadores (escritura)
+                .requestMatchers(HttpMethod.POST, "/api/jugadores").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.PUT, "/api/jugadores/*").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.DELETE, "/api/jugadores/*").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.PATCH, "/api/jugadores/*/reactivar").hasRole("ADMIN")
+
+                // RF-02: Solo Admin puede gestionar usuarios
                 .requestMatchers("/api/usuarios/**").hasRole("ADMIN")
+
                 .anyRequest().permitAll()
             )
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
@@ -73,7 +95,7 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        // Permitir orígenes de desarrollo web (localhost y direcciones locales)
+        // Permitir or�genes de desarrollo web (localhost y direcciones locales)
         configuration.setAllowedOriginPatterns(List.of("*"));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "Accept", "X-Requested-With", "Origin"));
