@@ -1,4 +1,4 @@
-package com.grupo2.LigaSF.security;
+﻿package com.grupo2.LigaSF.security;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -62,6 +62,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.PATCH, "/api/partidos/*/estado").hasAnyRole("DELEGADO", "ADMIN")
                 .requestMatchers(HttpMethod.POST, "/api/partidos/*/eventos").hasAnyRole("DELEGADO", "ADMIN")
                 .requestMatchers(HttpMethod.DELETE, "/api/eventos/*").hasAnyRole("DELEGADO", "ADMIN")
+                .requestMatchers("/api/usuarios/**").hasRole("ADMIN")
                 .anyRequest().permitAll()
             )
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
